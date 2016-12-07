@@ -30,14 +30,46 @@ namespace my_precious;
 defined( 'ABSPATH' ) or exit;
 
 /**
+ * @param array $args
+ * @param string $url
+ * @return array
+ */
+function clean_http_request_args( $args, $url ) {
+    // only act on requests to api.wordpress.org
+    if( strpos( $url, '://api.wordpress.org/' ) !== 5 ) {
+        return $args;
+    }
+
+    // strip site URL from headers & user-agent
+    unset( $args['headers']['wp_install'] );
+    unset( $args['headers']['wp_blog'] );
+
+    if( ! empty( $args['user-agent'] ) ) {
+        $args['user-agent'] = sprintf( 'WordPress/%s', $GLOBALS['wp_version'] );
+    }
+
+    if( ! empty( $args['headers']['User-Agent'] ) ) {
+        $args['user-agent'] = sprintf( 'WordPress/%s', $GLOBALS['wp_version'] );
+    }
+
+    return $args;
+}
+
+/**
  * @param false|array|\WP_Error $preempt
  * @param array $args
  * @param string $url
  * @return array|\WP_Error
  */
-function clean_request( $preempt, $args, $url ) {
+function pre_version_check_http_request( $preempt, $args, $url ) {
+
+    // TODO: If something else pre-fired this request than re-running this request makes no sense. The "damage" has already been done at this point.
+    if( $preempt !== false ) {
+        return $preempt;
+    }
+
     // only act on requests to api.wordpress.org
-    if( strpos( $url, '://api.wordpress.org/' ) !== 5 ) {
+    if( strpos( $url, '://api.wordpress.org/core/version-check' ) !== 5 ) {
         return $preempt;
     }
 
@@ -49,11 +81,6 @@ function clean_request( $preempt, $args, $url ) {
     // stop sending # of users to WordPress.org
     $url = remove_query_arg( 'users', $url );
 
-    // strip site URL from headers & user-agent
-    unset( $args['headers']['wp_install'] );
-    unset( $args['headers']['wp_blog'] );
-    $args['user-agent'] = sprintf( 'WordPress/%s', $GLOBALS['wp_version'] );
-
     // make request
     $args['_my_precious'] = true;
     $result = wp_remote_request( $url, $args );
@@ -61,4 +88,5 @@ function clean_request( $preempt, $args, $url ) {
     return $result;
 }
 
-add_filter( 'pre_http_request', 'my_precious\\clean_request', 10, 3 );
+add_filter( 'http_request_args', 'my_precious\\clean_http_request_args', 10, 2 );
+add_filter( 'pre_http_request', 'my_precious\\pre_version_check_http_request', 10, 3 );
