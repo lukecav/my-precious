@@ -31,37 +31,34 @@ defined( 'ABSPATH' ) or exit;
 
 /**
  * @param false|array|\WP_Error $preempt
- * @param array $r
+ * @param array $args
  * @param string $url
  * @return array|\WP_Error
  */
-function clean_request( $preempt, $r, $url ) {
+function clean_request( $preempt, $args, $url ) {
+    // only act on requests to api.wordpress.org
+    if( strpos( $url, '://api.wordpress.org/' ) !== 5 ) {
+        return $preempt;
+    }
 
-    if( strpos( $url, '://api.wordpress.org/core/version-check/' ) !== 5 ) {
+    // did we clean this request already?
+    if( ! empty( $args['_my_precious'] ) ) {
         return $preempt;
     }
 
     // stop sending # of users to WordPress.org
     $url = remove_query_arg( 'users', $url );
 
-    // remove filter temporarily
-    filter_off();
+    // strip site URL from headers & user-agent
+    unset( $args['headers']['wp_install'] );
+    unset( $args['headers']['wp_blog'] );
+    $args['user-agent'] = sprintf( 'WordPress/%s', $GLOBALS['wp_version'] );
 
     // make request
-    $result = wp_remote_post( $url, $r );
-
-    // re-add filter
-    filter_on();
+    $args['_my_precious'] = true;
+    $result = wp_remote_request( $url, $args );
 
     return $result;
 }
 
-function filter_on() {
-    add_filter( 'pre_http_request', 'my_precious\\clean_request', 10, 3 );
-}
-
-function filter_off() {
-    remove_filter( 'pre_http_request', 'my_precious\\clean_request' );
-}
-
-filter_on();
+add_filter( 'pre_http_request', 'my_precious\\clean_request', 10, 3 );

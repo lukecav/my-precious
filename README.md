@@ -3,7 +3,10 @@ My Precious
 
 Quit leaking sensitive information to WordPress.org, where the data is beyond our control.
 
-For now this only strips off the number of users your site has in the version check requests to the WordPress.org API.
+Right now this only strips the following information from _all_ requests to `api.wordpress.org`:
+
+- Site URL
+- Number of users
 
 For more information, please see [Trac ticket #16778](https://core.trac.wordpress.org/ticket/16778).
 
